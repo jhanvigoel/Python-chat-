@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"
+        integrity="sha512-luMnTJZ7oEchNDZAtQhgjomP1eZefnl82ruTH/3Oj/Yu5qYtwL7+dVRccACS/Snp1lFXq188XFipHKYE75IaQQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <style>
+            /* Your existing CSS here */
+            :root {
+                --primary-color: #ce4ae2;
+                --primary-light: #e277f3;
+                --primary-dark: #a121b4;
+                --secondary-color: #f8e8f3;
+                --text-color: #a4098a;
+                --bg-color: #ee6ece;
+                --message-bg: #e1eeff;
+                --system-message-color: #b38fb8;
+            }
+    
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                padding: 0;
+                background-color: var(--bg-color);
+                color: var(--text-color);
+            }
+    
+            .chat-container {
+                max-width: 800px;
+                margin: 20px auto;
+                background-color: white;
+                border-radius: 15px;
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+                overflow: hidden;
+            }
+    
+            .chat-header {
+                background-color: var(--primary-color);
+                color: white;
+                padding: 20px;
+                text-align: center;
+                font-size: 24px;
+                font-weight: bold;
+            }
+    
+            .chat-messages {
+                height: 400px;
+                overflow-y: auto;
+                padding: 20px;
+                background-color: var(--secondary-color);
+            }
+    
+            .message {
+                margin-bottom: 15px;
+                display: flex;
+                align-items: flex-start;
+            }
+    
+            .message img {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                margin-right: 10px;
+                border: 2px solid var(--primary-color);
+            }
+    
+            .message-content {
+                background-color: var(--message-bg);
+                padding: 12px;
+                border-radius: 18px;
+                max-width: 70%;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            }
+    
+            .message-username {
+                font-weight: bold;
+                margin-bottom: 5px;
+                color: var(--primary-dark);
+            }
+    
+            .chat-input {
+                display: flex;
+                padding: 20px;
+                background-color: white;
+                border-top: 1px solid var(--secondary-color);
+            }
+    
+            #message-input,
+            #username-input {
+                flex-grow: 1;
+                padding: 12px;
+                border: 1px solid var(--secondary-color);
+                border-radius: 25px;
+                margin-right: 10px;
+                font-size: 16px;
+            }
+    
+            #send-button,
+            #update-username-button {
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 12px 20px;
+                border-radius: 25px;
+                cursor: pointer;
+                font-size: 16px;
+                transition: background-color 0.3s ease;
+            }
+    
+            #send-button:hover,
+            #update-username-button:hover {
+                background-color: var(--primary-dark);
+            }
+    
+            .username-container {
+                display: flex;
+                padding: 15px 20px;
+                background-color: var(--secondary-color);
+                align-items: center;
+            }
+    
+            #current-username {
+                margin-right: 10px;
+                font-weight: bold;
+                color: var(--primary-dark);
+            }
+    
+            .system-message {
+                text-align: center;
+                font-style: italic;
+                color: var(--system-message-color);
+                margin: 10px 0;
+            }
+    
+            .message.sent {
+                flex-direction: row-reverse;
+            }
+    
+            .message.sent .message-content {
+                background-color: var(--primary-color);
+                color: white;
+                margin-left: 10px;
+                margin-right: 0;
+            }
+    
+            .message.sent .message-username {
+                text-align: right;
+                color: white;
+            }
+    
+            .message.sent img {
+                margin-right: 0;
+                margin-left: 10px;
+            }
+
+
+            .chat-container h1{
+                text-align: center;
+                color: var(--primary-color);
+                font-size: 20px;
+                padding: 5px;
+            }
+
+            @media only screen and (max-width: 390px) {
+                #username-input{
+                    font-size: 12px;
+                    padding: 10px 16px;
+                }
+
+                #current-username {
+                    font-size: 10px;
+                }
+
+                #update-username-button {
+                    font-size: 14px;
+                    padding: 10px 16px;
+                }
+            }
+
+        </style>
+</head>
+
+<body>
+    <div class="chat-container">
+        <h1>Chat Application</h1>
+        <div class="username-container">
+            <!-- <span id="current-username"></span> -->
+            <input type="text" id="username-input" placeholder="New username">
+            <button id="update-username-button">Update</button>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input">
+            <input type="text" id="message-input" placeholder="Enter Text...">
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+    <!-- <script src="{{ url_for('static', filename='index.js') }}"></script> -->
+    <script>
+        const socket = io();
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const currentUsernmeSpan = document.getElementById('current-username');
+        const usernameInput = document.getElementById('username-input');
+        const updateUserButton = document.getElementById('update-username-button');
+
+        let currentUsername = "";
+
+        socket.on("set_username", (data) => {
+            currentUsername = data.username;
+            currentUsernmeSpan.textContent = `Your username: ${currentUsername}`;
+        });
+
+        socket.on("user_joined", data => {
+            addMessage(`${data.username} joined the chat`, "system");
+        });
+
+        socket.on("user_left", data => {
+            addMessage(`${data.username} left the chat`, "system");
+        });
+
+        // Updated event name to 'message_sent' to match server-side event
+        socket.on("message_sent", data => {
+            addMessage(data.message, "user", data.username, data.avatar);
+        });
+
+        socket.on("username_updated", data => {
+            addMessage(`${data.old_username} changed their username to ${data.new_username}`, "system");
+            if (data.old_username === currentUsername) {
+                currentUsername = data.new_username;
+                currentUsernmeSpan.textContent = `Your username: ${currentUsername}`;
+            }
+        });
+
+        sendButton.addEventListener("click", sendMessage);
+
+        messageInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") sendMessage();
+        });
+
+        updateUserButton.addEventListener("click", updateUsername);
+
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message) {
+                socket.emit("send_message", { message });
+                messageInput.value = "";
+            }
+        }
+
+        function addMessage(message, type, username = "", avatar = "") {
+            const messageEle = document.createElement("div");
+            messageEle.classList.add("message");
+
+            if (type === "user") {
+                const isSentMessage = username === currentUsername;
+                if (isSentMessage) {
+                    messageEle.classList.add("sent");
+                }
+                const avatarEle = document.createElement("img");
+                avatarEle.src = avatar;
+                messageEle.appendChild(avatarEle);
+
+                const contentDiv = document.createElement("div");
+                contentDiv.className = "message-content";
+
+                const usernameDiv = document.createElement("div");
+                usernameDiv.textContent = username;
+                usernameDiv.className = "message-username";
+                contentDiv.appendChild(usernameDiv);
+
+                const messageText = document.createElement("div");
+                messageText.textContent = message;
+                contentDiv.appendChild(messageText);  // Corrected this line
+
+                messageEle.appendChild(contentDiv);
+
+            } else if (type === "system") {
+                messageEle.classList.add("system-message");
+                messageEle.textContent = message;
+            }
+
+            chatMessages.appendChild(messageEle);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function updateUsername() {
+            const newUsername = usernameInput.value.trim();
+            if (newUsername && newUsername !== currentUsername) {
+                socket.emit("update_username", { username: newUsername });
+                usernameInput.value = "";
+            }
+        }
+    </script>
+
+</body>
+
+</html>
