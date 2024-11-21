@@ -3,7 +3,7 @@ from flask_socketio import SocketIO, emit
 import random
 
 app = Flask(__name__)
-socketio = SocketIO(app, async_mode='eventlet')
+socketio = SocketIO(app)
 
 users = {}
 
